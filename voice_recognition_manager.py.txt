@@ -1,0 +1,481 @@
+# voice_recognition_manager.py
+import asyncio
+import json
+import logging
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Callable, Any
+from enum import Enum
+import re
+from datetime import datetime, timedelta
+
+import speech_recognition as sr
+import pyaudio
+import webrtcvad
+import collections
+import numpy as np
+from fuzzywuzzy import fuzz
+import websockets
+
+class VoiceCommandState(Enum):
+    LISTENING = "listening"
+    PROCESSING = "processing"
+    EXECUTING = "executing"
+    COOLDOWN = "cooldown"
+    ERROR = "error"
+
+@dataclass
+class VoiceCommand:
+    trigger_phrase: str
+    action_name: str
+    parameters: Dict[str, Any] = field(default_factory=dict)
+    confidence_threshold: float = 0.7
+    cooldown_seconds: float = 2.0
+    permission_level: str = "streamer"
+    description: str = ""
+    aliases: List[str] = field(default_factory=list)
+
+@dataclass
+class VoiceIntent:
+    command: str
+    confidence: float
+    parameters: Dict[str, Any]
+    raw_text: str
+    timestamp: datetime
+
+class VoiceActivationDetector:
+    """Advanced Voice Activity Detection using WebRTC VAD"""
+
+    def __init__(self, sample_rate: int = 16000, frame_duration: int = 30):
+        self.sample_rate = sample_rate
+        self.frame_duration = frame_duration
+        self.frame_size = int(sample_rate * frame_duration / 1000)
+        self.vad = webrtcvad.Vad(2)  # Aggressiveness level 0-3
+
+        # Ring buffer for voice detection
+        self.ring_buffer = collections.deque(maxlen=30)
+        self.triggered = False
+
+    def is_speech(self, audio_frame: bytes) -> bool:
+        """Detect if audio frame contains speech"""
+        return self.vad.is_speech(audio_frame, self.sample_rate)
+
+    def process_audio(self, audio_frame: bytes) -> tuple[bool, bool]:
+        """Process audio frame and return (is_speech, should_record)"""
+        is_speech = self.is_speech(audio_frame)
+        self.ring_buffer.append((audio_frame, is_speech))
+
+        num_voiced = len([f for f, speech in self.ring_buffer if speech])
+
+        # Trigger recording when we have enough voiced frames
+        if not self.triggered:
+            if num_voiced > 0.8 * len(self.ring_buffer):
+                self.triggered = True
+                return True, True
+        else:
+            # Stop recording when we have mostly silence
+            if num_voiced < 0.1 * len(self.ring_buffer):
+                self.triggered = False
+                return False, False
+
+        return is_speech, self.triggered
+
+class IntentClassifier:
+    """Natural Language Intent Classification for Voice Commands"""
+
+    def __init__(self):
+        self.commands: Dict[str, VoiceCommand] = {}
+        self.parameter_patterns = {
+            'number': r'\b(\d+(?:\.\d+)?)\b',
+            'airport': r'\b([A-Z]{3,4})\b',
+            'altitude': r'\b(\d+(?:,\d{3})*)\s*(?:feet|ft|foot)?\b',
+            'heading': r'\b(\d{1,3})\s*(?:degrees?|°)?\b',
+            'frequency': r'\b(\d{3}\.\d{2,3})\b',
+            'username': r'@(\w+)',
+        }
+
+    def register_command(self, command: VoiceCommand):
+        """Register a voice command for recognition"""
+        self.commands[command.trigger_phrase.lower()] = command
+        for alias in command.aliases:
+            self.commands[alias.lower()] = command
+
+    def extract_parameters(self, text: str, command: VoiceCommand) -> Dict[str, Any]:
+        """Extract parameters from voice command text"""
+        parameters = {}
+
+        for param_type, pattern in self.parameter_patterns.items():
+            matches = re.findall(pattern, text, re.IGNORECASE)
+            if matches:
+                if param_type == 'number':
+                    parameters[param_type] = float(matches[0])
+                elif param_type == 'altitude':
+                    # Remove commas and convert to int
+                    parameters[param_type] = int(matches[0].replace(',', ''))
+                else:
+                    parameters[param_type] = matches[0]
+
+        return parameters
+
+    def classify_intent(self, text: str) -> Optional[VoiceIntent]:
+        """Classify voice input text into a command intent"""
+        text_lower = text.lower().strip()
+
+        best_match = None
+        best_confidence = 0.0
+
+        for trigger, command in self.commands.items():
+            # Use fuzzy string matching for robustness
+            confidence = fuzz.partial_ratio(trigger, text_lower) / 100.0
+
+            if confidence > command.confidence_threshold and confidence > best_confidence:
+                best_match = command
+                best_confidence = confidence
+
+        if best_match:
+            parameters = self.extract_parameters(text, best_match)
+            return VoiceIntent(
+                command=best_match.action_name,
+                confidence=best_confidence,
+                parameters=parameters,
+                raw_text=text,
+                timestamp=datetime.now()
+            )
+
+        return None
+
+class SpeechToTextEngine:
+    """Speech recognition engine with multiple backend support"""
+
+    def __init__(self, engine: str = "google", language: str = "en-US"):
+        self.engine = engine
+        self.language = language
+        self.recognizer = sr.Recognizer()
+
+        # Optimize recognizer settings
+        self.recognizer.energy_threshold = 300
+        self.recognizer.dynamic_energy_threshold = True
+        self.recognizer.pause_threshold = 0.8
+        self.recognizer.phrase_threshold = 0.3
+
+    async def transcribe_audio(self, audio_data: sr.AudioData) -> Optional[str]:
+        """Convert audio to text using specified engine"""
+        try:
+            if self.engine == "google":
+                text = self.recognizer.recognize_google(audio_data, language=self.language)
+            elif self.engine == "azure":
+                # Azure Cognitive Services implementation
+                text = await self._azure_transcribe(audio_data)
+            elif self.engine == "whisper":
+                # OpenAI Whisper implementation
+                text = await self._whisper_transcribe(audio_data)
+            else:
+                text = self.recognizer.recognize_sphinx(audio_data)
+
+            return text.strip()
+
+        except sr.UnknownValueError:
+            return None
+        except sr.RequestError as e:
+            logging.error(f"Speech recognition error: {e}")
+            return None
+
+    async def _azure_transcribe(self, audio_data: sr.AudioData) -> str:
+        """Azure Cognitive Services transcription"""
+        # Placeholder for Azure implementation
+        pass
+
+    async def _whisper_transcribe(self, audio_data: sr.AudioData) -> str:
+        """OpenAI Whisper transcription"""
+        # Placeholder for Whisper implementation
+        pass
+
+class StreamerBotActionManager:
+    """Interface to Streamer.bot for executing actions"""
+
+    def __init__(self, websocket_uri: str):
+        self.websocket_uri = websocket_uri
+        self.ws: Optional[websockets.WebSocketClientProtocol] = None
+        self.logger = logging.getLogger('StreamerBotActions')
+
+    async def connect(self):
+        """Connect to Streamer.bot WebSocket"""
+        try:
+            self.ws = await websockets.connect(self.websocket_uri)
+            self.logger.info("Connected to Streamer.bot")
+        except Exception as e:
+            self.logger.error(f"Failed to connect to Streamer.bot: {e}")
+            raise
+
+    async def execute_action(self, action_name: str, parameters: Dict[str, Any] = None):
+        """Execute a Streamer.bot action with parameters"""
+        if not self.ws:
+            await self.connect()
+
+        command = {
+            "request": "DoAction",
+            "action": {
+                "name": action_name
+            },
+            "args": parameters or {}
+        }
+
+        try:
+            await self.ws.send(json.dumps(command))
+            self.logger.info(f"Executed action: {action_name} with parameters: {parameters}")
+        except Exception as e:
+            self.logger.error(f"Failed to execute action {action_name}: {e}")
+            raise
+
+class VoiceRecognitionManager:
+    """Main voice recognition pipeline manager"""
+
+    def __init__(self, config: Dict[str, Any]):
+        self.config = config
+        self.logger = logging.getLogger('VoiceRecognition')
+
+        # Core components
+        self.vad = VoiceActivationDetector()
+        self.stt_engine = SpeechToTextEngine(
+            engine=config.get('stt_engine', 'google'),
+            language=config.get('language', 'en-US')
+        )
+        self.intent_classifier = IntentClassifier()
+        self.streamerbot = StreamerBotActionManager(config['streamerbot_ws_uri'])
+
+        # State management
+        self.state = VoiceCommandState.LISTENING
+        self.last_command_time = datetime.min
+        self.command_cooldowns: Dict[str, datetime] = {}
+        self.is_recording = False
+        self.audio_frames = []
+
+        # Audio setup
+        self.microphone = sr.Microphone(sample_rate=16000, chunk_size=512)
+        self.audio_queue = asyncio.Queue()
+
+        self._setup_default_commands()
+
+    def _setup_default_commands(self):
+        """Set up default voice commands"""
+        commands = [
+            VoiceCommand(
+                trigger_phrase="overlord set altitude",
+                action_name="SetAltitude",
+                description="Set autopilot altitude",
+                aliases=["set altitude", "altitude to"]
+            ),
+            VoiceCommand(
+                trigger_phrase="overlord set heading",
+                action_name="SetHeading",
+                description="Set autopilot heading",
+                aliases=["set heading", "heading to", "turn to"]
+            ),
+            VoiceCommand(
+                trigger_phrase="overlord contact tower",
+                action_name="ContactATC",
+                description="Display ATC contact information",
+                aliases=["contact atc", "call tower"]
+            ),
+            VoiceCommand(
+                trigger_phrase="overlord flight status",
+                action_name="ShowFlightStatus",
+                description="Display detailed flight status",
+                aliases=["status report", "flight report", "current status"]
+            ),
+            VoiceCommand(
+                trigger_phrase="overlord weather report",
+                action_name="ShowWeather",
+                description="Display current weather",
+                aliases=["weather", "current weather"]
+            ),
+            VoiceCommand(
+                trigger_phrase="overlord emergency",
+                action_name="EmergencyAlert",
+                description="Trigger emergency procedures",
+                cooldown_seconds=10.0
+            ),
+            VoiceCommand(
+                trigger_phrase="overlord screenshot",
+                action_name="TakeScreenshot",
+                description="Take and share screenshot",
+                aliases=["take screenshot", "capture screen"]
+            ),
+            VoiceCommand(
+                trigger_phrase="overlord change scene",
+                action_name="ChangeOBSScene",
+                description="Change OBS scene",
+                aliases=["switch scene", "change view"]
+            )
+        ]
+
+        for command in commands:
+            self.intent_classifier.register_command(command)
+
+    async def start_listening(self):
+        """Start the voice recognition pipeline"""
+        self.logger.info("Starting voice recognition pipeline")
+
+        # Connect to Streamer.bot
+        await self.streamerbot.connect()
+
+        # Start audio processing tasks
+        audio_task = asyncio.create_task(self._audio_processing_loop())
+        recognition_task = asyncio.create_task(self._recognition_processing_loop())
+
+        await asyncio.gather(audio_task, recognition_task)
+
+    async def _audio_processing_loop(self):
+        """Continuously process audio input"""
+        with self.microphone as source:
+            self.stt_engine.recognizer.adjust_for_ambient_noise(source)
+
+        while True:
+            try:
+                # Get audio frame
+                with self.microphone as source:
+                    audio_frame = self.stt_engine.recognizer.listen(
+                        source, timeout=0.1, phrase_time_limit=0.5
+                    )
+
+                # Process with VAD
+                audio_bytes = audio_frame.get_raw_data()
+                is_speech, should_record = self.vad.process_audio(audio_bytes)
+
+                if should_record and not self.is_recording:
+                    self.is_recording = True
+                    self.audio_frames = []
+                    self.logger.debug("Started recording voice command")
+
+                if self.is_recording:
+                    self.audio_frames.append(audio_frame)
+
+                if not should_record and self.is_recording:
+                    self.is_recording = False
+                    # Combine audio frames and queue for recognition
+                    combined_audio = self._combine_audio_frames(self.audio_frames)
+                    await self.audio_queue.put(combined_audio)
+                    self.logger.debug("Finished recording, queued for recognition")
+
+            except sr.WaitTimeoutError:
+                # No audio input, continue listening
+                continue
+            except Exception as e:
+                self.logger.error(f"Audio processing error: {e}")
+                await asyncio.sleep(0.1)
+
+    async def _recognition_processing_loop(self):
+        """Process queued audio for speech recognition"""
+        while True:
+            try:
+                # Get audio from queue
+                audio_data = await self.audio_queue.get()
+
+                self.state = VoiceCommandState.PROCESSING
+
+                # Convert to text
+                text = await self.stt_engine.transcribe_audio(audio_data)
+
+                if text:
+                    self.logger.info(f"Recognized speech: '{text}'")
+
+                    # Classify intent
+                    intent = self.intent_classifier.classify_intent(text)
+
+                    if intent:
+                        await self._execute_voice_command(intent)
+                    else:
+                        self.logger.debug(f"No command recognized for: '{text}'")
+
+                self.state = VoiceCommandState.LISTENING
+
+            except Exception as e:
+                self.logger.error(f"Recognition processing error: {e}")
+                self.state = VoiceCommandState.ERROR
+                await asyncio.sleep(1)
+                self.state = VoiceCommandState.LISTENING
+
+    async def _execute_voice_command(self, intent: VoiceIntent):
+        """Execute a recognized voice command"""
+        # Check cooldown
+        if intent.command in self.command_cooldowns:
+            if datetime.now() < self.command_cooldowns[intent.command]:
+                self.logger.debug(f"Command {intent.command} is on cooldown")
+                return
+
+        self.state = VoiceCommandState.EXECUTING
+
+        try:
+            # Execute via Streamer.bot
+            await self.streamerbot.execute_action(intent.command, intent.parameters)
+
+            # Update cooldown
+            command_def = next(
+                (cmd for cmd in self.intent_classifier.commands.values()
+                 if cmd.action_name == intent.command), None
+            )
+
+            if command_def:
+                cooldown_until = datetime.now() + timedelta(seconds=command_def.cooldown_seconds)
+                self.command_cooldowns[intent.command] = cooldown_until
+
+            self.logger.info(f"Executed voice command: {intent.command}")
+
+        except Exception as e:
+            self.logger.error(f"Failed to execute voice command {intent.command}: {e}")
+
+        finally:
+            self.state = VoiceCommandState.LISTENING
+
+    def _combine_audio_frames(self, frames: List[sr.AudioData]) -> sr.AudioData:
+        """Combine multiple audio frames into one"""
+        if not frames:
+            return None
+
+        # Combine raw audio data
+        combined_data = b''.join(frame.get_raw_data() for frame in frames)
+
+        # Create new AudioData with combined data
+        return sr.AudioData(
+            combined_data,
+            frames[0].sample_rate,
+            frames[0].sample_width
+        )
+
+    def get_status(self) -> Dict[str, Any]:
+        """Get current voice recognition status"""
+        return {
+            "state": self.state.value,
+            "is_recording": self.is_recording,
+            "available_commands": len(self.intent_classifier.commands),
+            "pending_audio": self.audio_queue.qsize(),
+            "last_command": self.last_command_time.isoformat() if self.last_command_time != datetime.min else None
+        }
+
+    async def stop(self):
+        """Stop voice recognition and cleanup"""
+        self.state = VoiceCommandState.COOLDOWN
+        if self.streamerbot.ws:
+            await self.streamerbot.ws.close()
+        self.logger.info("Voice recognition stopped")
+
+# Example usage and integration
+async def main():
+    """Example usage of the voice recognition system"""
+    config = {
+        'stt_engine': 'google',
+        'language': 'en-US',
+        'streamerbot_ws_uri': 'ws://localhost:7580',
+        'confidence_threshold': 0.7
+    }
+
+    voice_manager = VoiceRecognitionManager(config)
+
+    try:
+        await voice_manager.start_listening()
+    except KeyboardInterrupt:
+        print("Stopping voice recognition...")
+        await voice_manager.stop()
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    asyncio.run(main())
