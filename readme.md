@@ -1,3 +1,6 @@
+![Project Banner](./banner.png)
+
+
 # AI Overlord Bot 🤖✈️
 
 > *"Your digital sovereign for flight simulation streaming"*
