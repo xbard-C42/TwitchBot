@@ -1,4 +1,4 @@
-![Project Banner](./A futuristic AI overlord .jpg)
+![Project Banner](./banner.jpg)
 
 
 # AI Overlord Bot 🤖✈️
