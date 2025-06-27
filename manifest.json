@@ -1,0 +1,9 @@
+{
+  "short_name": "AI Control",
+  "name": "AI Overlord Bot Control Panel",
+  "description": "A dashboard to monitor and manage the voice recognition bot for the AI Overlord Bot on Grab Your Parachutes stream.",
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#0c0c0e",
+  "background_color": "#0c0c0e"
+}

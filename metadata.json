@@ -1,0 +1,6 @@
+{
+  "name": "AI Overlord Bot Control Panel",
+  "description": "A dashboard to monitor and manage the voice recognition bot for the AI Overlord Bot on Grab Your Parachutes stream.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}

@@ -1,0 +1,985 @@
+
+<!DOCTYPE html>
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><style>
+  @import url(https://fonts.googleapis.com/css?family=Google+Sans+Text);
+  html {
+    font-family: 'Google Sans Text', 'Google Sans';
+    font-size: 14px;
+    color-scheme: light dark;
+    background: light-dark(white, black);
+    color: light-dark(black, white);
+  }
+</style>
+<style>
+/* Basic Reset */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  line-height: 1.6;
+  background: linear-gradient(135deg, #121417 0%, #202329 100%); /* Dark gradient for depth */
+  color: #e0e0e0; /* Light text */
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+header {
+  background: rgba(30, 33, 40, 0.5); /* Darker glass base */
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  padding: 15px 25px;
+  text-align: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1); /* Subtle light border */
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  position: sticky; /* Keep header visible */
+  top: 0;
+  z-index: 100;
+}
+
+header h1 {
+  color: #ffffff;
+  font-size: 1.8em;
+  font-weight: 500;
+  letter-spacing: 1px;
+}
+
+.status-bar {
+  background: rgba(25, 28, 34, 0.45); /* Slightly different glass for status */
+  backdrop-filter: blur(10px) saturate(150%);
+  -webkit-backdrop-filter: blur(10px) saturate(150%);
+  padding: 10px 25px;
+  display: flex;
+  justify-content: space-around;
+  flex-wrap: wrap;
+  gap: 15px;
+  font-size: 0.9em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  position: sticky; /* Keep status bar visible */
+  top: /* height of header, e.g., 60px - adjust if header padding changes */ 67px; 
+  z-index: 99;
+}
+
+.status-bar span {
+  color: #b0b0b0;
+}
+
+.status-bar strong {
+  font-weight: 500;
+  margin-left: 5px;
+}
+
+.status-online {
+  color: #50fa7b; /* Brighter green */
+}
+
+.status-offline {
+  color: #ff5555; /* Brighter red */
+}
+
+.status-vad-active {
+  color: #ffb86c; /* Brighter orange */
+  font-weight: bold;
+}
+.status-vad-inactive {
+  color: #9e9e9e; 
+}
+
+
+.dashboard {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); 
+  gap: 20px;
+  padding: 25px;
+  flex-grow: 1;
+}
+
+.dashboard-module {
+  background: rgba(255, 255, 255, 0.05); /* Core glass effect: light base, low opacity */
+  backdrop-filter: blur(10px) saturate(180%);
+  -webkit-backdrop-filter: blur(10px) saturate(180%);
+  padding: 20px;
+  border-radius: 12px; /* Slightly more rounded */
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.25); /* Softer, more diffused shadow */
+  border: 1px solid rgba(255, 255, 255, 0.125); /* Subtle light border */
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-module h2 {
+  font-size: 1.3em;
+  color: #8be9fd; /* Cyan accent */
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  font-weight: 500;
+}
+.dashboard-module h3 {
+  font-size: 1.1em;
+  color: #f8f8f2; /* Brighter heading text */
+  margin-top: 15px;
+  margin-bottom: 8px;
+  font-weight: 400;
+}
+
+
+.module-controls {
+  margin-bottom: 15px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.module-controls p {
+    margin-left: auto; 
+}
+#voice-log-module .module-controls p { 
+    margin-left: 15px;
+}
+
+
+.control-button {
+  background: linear-gradient(145deg, rgba(80, 250, 123, 0.2), rgba(142, 233, 253, 0.2)); /* Gradient with transparency */
+  color: #f8f8f2;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 10px 15px;
+  border-radius: 8px;
+  font-size: 0.95em;
+  cursor: pointer;
+  transition: background 0.3s ease, transform 0.1s ease, box-shadow 0.3s ease;
+  font-weight: 500;
+  min-height: 38px; 
+  display: inline-flex; 
+  align-items: center; 
+  justify-content: center;
+  text-align: center; 
+  line-height: 1.2; 
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.control-button:hover:not(:disabled) {
+  background: linear-gradient(145deg, rgba(80, 250, 123, 0.3), rgba(142, 233, 253, 0.3));
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+  transform: translateY(-1px);
+}
+.control-button:active:not(:disabled) {
+  transform: translateY(0px);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.control-button:disabled {
+  background: rgba(100, 100, 100, 0.2);
+  border-color: rgba(255,255,255,0.1);
+  color: #aaa;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.control-input, 
+#ai-model-select,
+.form-group input[type="text"], 
+.form-group select,
+.config-editor-textarea { /* Added textarea here */
+  background: rgba(0, 0, 0, 0.25); /* Darker semi-transparent for inputs */
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e0e0e0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 0.95em;
+  min-height: 38px; 
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.control-input:focus,
+#ai-model-select:focus,
+.form-group input[type="text"]:focus, 
+.form-group select:focus,
+.config-editor-textarea:focus {
+  outline: none;
+  border-color: rgba(139, 233, 253, 0.7); /* Cyan focus */
+  box-shadow: 0 0 0 2px rgba(139, 233, 253, 0.2);
+}
+
+
+.module-info p, .module-info code {
+  margin-bottom: 8px;
+  font-size: 0.95em;
+  color: #c0c0c0;
+}
+.module-info code, .module-info strong { 
+  background-color: rgba(0,0,0,0.2);
+  padding: 3px 6px;
+  border-radius: 5px;
+  color: #ffb86c; /* Orange for code */
+  font-family: 'Courier New', Courier, monospace;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+.module-info strong { 
+    color: #8be9fd; 
+    background-color: transparent;
+    font-weight: bold;
+}
+#loyalty-user-details-display p strong {
+    background-color: rgba(0,0,0,0.2); 
+    border: 1px solid rgba(255,255,255,0.05);
+}
+
+
+#qs-ai-personality-prompt {
+  white-space: pre-wrap; 
+  max-height: 70px; 
+  overflow-y: auto; 
+  display: block; 
+  background-color: rgba(0,0,0,0.2);
+  padding: 8px;
+  border-radius: 5px;
+  border: 1px solid rgba(255,255,255,0.1);
+  font-family: 'Courier New', Courier, monospace;
+  color: #bd93f9; /* Purple for this specific code block */
+}
+
+
+.grid-display {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 8px;
+}
+
+.log-output, .list-output, .code-display {
+  background-color: rgba(0, 0, 0, 0.3); /* Darker for logs, more depth */
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 10px;
+  height: 150px; 
+  overflow-y: auto;
+  font-size: 0.85em;
+  flex-grow: 1; 
+}
+.list-output {
+    padding-left: 0; 
+}
+.list-output li {
+    margin-bottom: 5px;
+    padding: 6px 12px; 
+    list-style-type: none; 
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.list-output li:last-child {
+    border-bottom: none;
+}
+
+.log-output .log-placeholder, .list-output .log-placeholder {
+    color: #777;
+    font-style: italic;
+    text-align: center;
+    padding-top: 20px;
+}
+.list-output .log-placeholder::before {
+    content: ""; 
+}
+
+
+.log-entry {
+  margin-bottom: 5px;
+  padding: 3px 0;
+  border-bottom: 1px dashed rgba(255,255,255,0.07);
+}
+.log-entry:last-child {
+  border-bottom: none;
+}
+.log-entry .timestamp {
+  color: #aaa;
+  margin-right: 8px;
+}
+.log-entry .log-message strong { 
+    color: #8be9fd; /* Cyan */
+}
+.log-entry.log-success .log-message { color: #50fa7b; }
+.log-entry.log-error .log-message { color: #ff5555; }
+.log-entry.log-info .log-message { color: #8be9fd; }
+
+
+.code-display { 
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.9em;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  color: #50fa7b; /* Green for code output */
+  min-height: 50px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+  display: flex;
+  flex-direction: column;
+}
+.form-group label {
+  margin-bottom: 5px;
+  font-size: 0.9em;
+  color: #bbb;
+}
+
+.form-group .control-button {
+    align-self: flex-start;
+}
+
+.form-group > .control-input + .control-button {
+    margin-top: 8px;
+}
+.form-group > input[type="text"] + .control-button,
+.form-group > textarea + .control-button { 
+    width: 100%;
+}
+
+
+#decrees-loyalty-module .form-group { 
+    margin-bottom: 10px;
+}
+#decrees-loyalty-module .control-button { 
+    margin-top: 5px; 
+}
+
+#suggest-decree-button {
+    background: linear-gradient(145deg, rgba(189, 147, 249, 0.2), rgba(255, 121, 198, 0.2)); /* Purple/Pink gradient */
+    border-color: rgba(255,255,255,0.25);
+}
+#suggest-decree-button:hover:not(:disabled) {
+    background: linear-gradient(145deg, rgba(189, 147, 249, 0.3), rgba(255, 121, 198, 0.3));
+}
+
+#decree-suggestions-area {
+    background-color: rgba(0,0,0, 0.2); 
+    border: 1px dashed rgba(139, 233, 253, 0.5); /* Cyan dashed border */
+    padding: 10px;
+    border-radius: 8px;
+}
+#decree-suggestions-area ul {
+    list-style-type: none;
+    padding-left: 0;
+}
+#decree-suggestions-area li {
+    padding: 6px 0px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    color: #d0d0d0;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+}
+#decree-suggestions-area li:hover {
+    background-color: rgba(139, 233, 253, 0.1);
+    color: #8be9fd;
+}
+#decree-suggestions-area li:last-child {
+    border-bottom: none;
+}
+
+
+#chat-module .form-group { 
+    margin-top: auto; 
+    padding-top: 15px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.module-status-message {
+    font-size: 0.85em;
+    color: #50fa7b; 
+    margin-top: 8px;
+    min-height: 1.2em; 
+}
+.module-status-message.error {
+    color: #ff5555; 
+}
+.module-status-message.info {
+    color: #8be9fd; 
+}
+
+
+.button-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); 
+    gap: 8px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+footer {
+  text-align: center;
+  padding: 15px;
+  background: rgba(30, 33, 40, 0.6); /* Consistent with header style */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.85em;
+  color: #999;
+}
+
+/* Specific command list item styling */
+#available-commands-list li {
+    padding: 8px 10px; 
+}
+#available-commands-list .command-trigger {
+    font-weight: bold;
+    color: #8be9fd; 
+    display: block; 
+    margin-bottom: 3px;
+}
+#available-commands-list .command-description {
+    font-size: 0.9em;
+    color: #bbb;
+    display: block;
+    margin-left: 10px; 
+    margin-bottom: 3px;
+}
+#available-commands-list .command-aliases {
+    font-size: 0.85em;
+    color: #999;
+    display: block;
+    margin-left: 10px; 
+    font-style: italic;
+    margin-bottom: 3px;
+}
+#available-commands-list .command-details {
+    font-size: 0.85em;
+    color: #aaa;
+    display: block;
+    margin-left: 10px;
+    margin-bottom: 3px;
+}
+#available-commands-list .command-detail-label {
+    font-weight: 500;
+    color: #ccc;
+}
+#available-commands-list .command-detail-value {
+    color: #eee; 
+}
+#available-commands-list .command-parameters {
+    font-size: 0.85em;
+    color: #aaa;
+    display: block;
+    margin-left: 10px;
+}
+#available-commands-list .parameter-name {
+    font-style: italic;
+    color: #8be9fd; 
+}
+#available-commands-list .parameter-type {
+    color: #ffb86c; 
+}
+
+
+hr.separator {
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    margin: 10px 0;
+}
+
+/* Styles for Config Editor - uses .control-input styles now */
+.config-editor-textarea {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.9em;
+    resize: vertical; 
+    min-height: 200px; 
+    color: #f8f8f2; /* Ensure light text for editor content */
+}
+
+.config-editor-status {
+    font-size: 0.85em;
+    color: #50fa7b; 
+    margin-top: 8px;
+    min-height: 1.2em;
+}
+.config-editor-status.error {
+    color: #ff5555;
+}
+.config-editor-status.info {
+    color: #8be9fd;
+}
+
+
+/* Tooltip Styles */
+.tooltip-trigger {
+  cursor: help;
+  position: relative;
+  display: inline-block;
+  margin-left: 4px;
+  color: #8be9fd; 
+}
+
+.tooltip-trigger::before,
+.tooltip-trigger::after {
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out, visibility 0.2s ease-in-out;
+  position: absolute;
+  z-index: 1000;
+  pointer-events: none; 
+}
+
+.tooltip-trigger::before { /* Arrow */
+  content: '';
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 6px 6px 0 6px; 
+  border-color: rgba(30, 30, 30, 0.7) transparent transparent transparent; 
+  bottom: 100%; 
+  left: 50%;
+  transform: translateX(-50%) translateY(-2px); 
+}
+
+.tooltip-trigger::after { /* Text box */
+  content: attr(data-tooltip); 
+  background: rgba(30, 30, 30, 0.7); 
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  color: #e0e0e0; 
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.85em;
+  line-height: 1.4;
+  width: max-content; 
+  max-width: 250px; 
+  bottom: 100%; 
+  left: 50%;
+  transform: translateX(-50%) translateY(-8px); 
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.tooltip-trigger:hover::before,
+.tooltip-trigger:hover::after {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* Key Status Styling */
+.key-status-set {
+    color: #50fa7b; /* Bright Green */
+    font-weight: bold;
+}
+.key-status-not-set {
+    color: #ffb86c; /* Orange/Amber */
+    font-weight: bold;
+}
+.key-status-optional-not-set {
+    color: #9e9e9e; 
+    font-style: italic;
+}
+
+/* Setup Checklist Styles */
+#setup-checklist-list li {
+    padding: 6px 10px;
+    font-size: 0.9em;
+    color: #c0c0c0;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    position: relative; 
+    padding-left: 25px; 
+}
+#setup-checklist-list li::before {
+    content: "➔"; 
+    position: absolute;
+    left: 8px;
+    top: 6px;
+    color: #8be9fd; 
+    font-size: 0.9em;
+}
+
+#setup-checklist-list li:last-child {
+    border-bottom: none;
+}
+#setup-checklist-list li code {
+    background-color: rgba(0,0,0,0.15); 
+    color: #ffb86c; 
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+/* Scrollbar styling for a more modern look */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.1);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Ensure consistent font for all input like elements */
+select, input, textarea, button {
+    font-family: 'Roboto', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}</style>
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Overlord Bot Control Panel</title>
+  <link rel="stylesheet" href="./AI Overlord Bot Control Panel_files/index.css">
+  <link href="./AI Overlord Bot Control Panel_files/css2" rel="stylesheet">
+<link rel="stylesheet" href="/index.css">
+</head>
+<body cz-shortcut-listen="true">
+  <header>
+    <h1>AI Overlord Bot Control Panel</h1>
+  </header>
+
+  <div class="status-bar" aria-label="System Status">
+    <span>Bot: <strong id="bot-status-indicator" class="status-offline">Stopped</strong></span>
+    <span>Twitch: <strong id="twitch-status-indicator" class="status-offline">Offline</strong></span>
+    <span>Streamer.bot: <strong id="streamerbot-status-indicator" class="status-offline">Offline</strong></span>
+    <span>LittleNavmap: <strong id="lnm-status-indicator" class="status-offline">Offline</strong></span>
+  </div>
+
+  <main class="dashboard">
+    <section id="bot-control-module" class="dashboard-module" aria-labelledby="bot-control-heading">
+      <h2 id="bot-control-heading">Bot Control</h2>
+      <div class="module-controls">
+        <button id="toggle-bot-button" class="control-button">Start Bot</button>
+        <button id="cycle-mood-button" class="control-button" title="Cycle AI Mood" disabled="">Cycle Mood</button>
+        <button id="request-status-report-button" class="control-button" title="Request Full Status Report" disabled="">Full Status Report</button>
+      </div>
+      <div class="module-info">
+        <div class="form-group" style="margin-bottom: 8px;">
+          <label for="ai-model-select">Primary AI Model:</label>
+          <select id="ai-model-select" class="control-input">
+            <option value="Gemini">Gemini (Active)</option>
+            <option value="Claude">Claude (Simulated)</option>
+            <option value="ChatGPT">ChatGPT (Simulated)</option>
+          </select>
+        </div>
+        <p>AI Mood: <span id="ai-mood">---</span></p>
+        <p>Personality Profile: <span id="ai-personality">AI Overlord (Gemini Core)</span></p>
+      </div>
+      <h3>Mood Change Log:</h3>
+      <div id="mood-log-output" class="log-output" style="height: 60px;" aria-live="polite"><p class="log-placeholder">Mood changes will appear here...</p></div>
+      <h3>AI Contextual Behavior:</h3>
+      <div class="module-info">
+          <p>Current Flight Context Influence: <span id="ai-flight-context">---</span></p>
+      </div>
+      <div class="module-controls button-grid" id="flight-context-buttons" style="margin-top: 5px;">
+          <button class="control-button context-button" data-context="Ground" disabled="">Ground</button>
+          <button class="control-button context-button" data-context="Taxi" disabled="">Taxi</button>
+          <button class="control-button context-button" data-context="Climb" disabled="">Climb</button>
+          <button class="control-button context-button" data-context="Cruise" disabled="">Cruise</button>
+          <button class="control-button context-button" data-context="Descent" disabled="">Descent</button>
+          <button class="control-button context-button" data-context="Approach" disabled="">Approach</button>
+          <button class="control-button context-button" data-context="Landing" disabled="">Landing</button>
+      </div>
+    </section>
+
+    <section id="setup-checklist-module" class="dashboard-module" aria-labelledby="setup-checklist-heading">
+      <h2 id="setup-checklist-heading">Initial Setup Checklist (Server-Side)</h2>
+      <p class="module-info" style="font-size: 0.9em; margin-bottom: 10px;">Ensure these steps are completed on your bot's server for proper operation:</p>
+      <ul id="setup-checklist-list" class="list-output" style="height: auto; min-height: 200px; padding-left: 10px;">
+        <li>Create <code>.env</code> file (copy from <code>.example.env.txt</code>).</li>
+        <li>Set Core Twitch Credentials in <code>.env</code> (ID, Secret, OAuth, Channel, Bot Name, Broadcaster ID).</li>
+        <li>Set Twitch API Access in <code>.env</code> (API Client ID, Secret, User Token for Helix).</li>
+        <li>Set OpenAI API Key (<code>OPENAI_API_KEY</code>) in <code>.env</code>. (Note: For Gemini API, ensure <code>API_KEY</code> is set for @google/genai as per project guidelines).</li>
+        <li>Configure MongoDB URI (<code>MONGO_URI</code>) in <code>.env</code>.</li>
+        <li>Set Streamer.bot WebSocket URI (<code>STREAMERBOT_WS_URI</code>) in <code>.env</code>.</li>
+        <li>Set LittleNavmap URL (<code>LITTLENAVMAP_URL</code>) in <code>.env</code>.</li>
+        <li>(Optional) Configure Sentry DSN for error tracking in <code>.env</code>.</li>
+        <li>(Optional) Add API keys for Azure Speech, Airport data in <code>.env</code>.</li>
+        <li>Ensure <code>config.yaml</code> exists or use editor to create/save. (See "Config Editor" module).</li>
+      </ul>
+    </section>
+
+    <section id="voice-log-module" class="dashboard-module" aria-labelledby="voice-log-heading">
+      <h2 id="voice-log-heading">Voice Command Center</h2>
+      <div class="module-controls">
+        <button id="toggle-voice-commands-button" class="control-button">Enable Voice</button>
+        <p>Status: <span id="voice-system-status">Disabled</span></p>
+        <p>VAD: <span id="vad-status-indicator" class="status-vad-inactive">Inactive</span></p>
+      </div>
+      <div id="voice-log-output" class="log-output" aria-live="polite"><p class="log-placeholder">Voice command activity will appear here...</p></div>
+    </section>
+    
+    <section id="voice-details-module" class="dashboard-module" aria-labelledby="voice-details-heading">
+      <h2 id="voice-details-heading">Voice System Details</h2>
+      <div class="module-info">
+        <p>STT Engine: <code id="vds-stt-engine">---</code></p>
+        <p>Language: <code id="vds-language">---</code></p>
+        <p>Confidence Thresh.: <code id="vds-confidence">---</code></p>
+        <p>Cmd Timeout: <code id="vds-timeout">---</code></p>
+        <p>Phrase Limit: <code id="vds-phrase-limit">---</code></p>
+        <hr class="separator">
+        <p>Energy Thresh.: <code id="vds-energy-threshold">---</code> <span class="tooltip-trigger" data-tooltip="Minimum audio energy level to be considered speech. Helps ignore soft background noise.">ⓘ</span></p>
+        <p>Dynamic Energy: <code id="vds-dynamic-energy">---</code> <span class="tooltip-trigger" data-tooltip="If enabled, energy threshold adjusts automatically based on ambient noise.">ⓘ</span></p>
+        <p>Pause Thresh.: <code id="vds-pause-threshold">---</code> <span class="tooltip-trigger" data-tooltip="Seconds of silence indicating the end of a phrase.">ⓘ</span></p>
+        <p>Phrase Thresh.: <code id="vds-phrase-threshold">---</code> <span class="tooltip-trigger" data-tooltip="Minimum seconds of speech to be considered a valid phrase.">ⓘ</span></p>
+        <hr class="separator">
+        <p>VAD Aggressiveness: <code id="vds-vad-aggressiveness">---</code> <span class="tooltip-trigger" data-tooltip="Controls Voice Activity Detection sensitivity (0-3). Higher is more aggressive, detecting softer sounds.">ⓘ</span></p>
+        <p>Mic Sample Rate: <code id="vds-mic-sample-rate">---</code></p>
+        <p>Mic Chunk Size: <code id="vds-mic-chunk-size">---</code></p>
+      </div>
+      <div class="module-controls">
+        <button id="toggle-tts-button" class="control-button" disabled="">Enable TTS Output</button>
+      </div>
+      <h3>Available Voice Commands:</h3>
+      <ul id="available-commands-list" class="list-output scrollable-list" style="height: 120px;"><li class="log-placeholder">No commands loaded.</li></ul>
+    </section>
+
+    <section id="flight-data-module" class="dashboard-module" aria-labelledby="flight-data-heading">
+      <h2 id="flight-data-heading">Live Flight Data</h2>
+      <div class="module-info grid-display">
+        <p>Callsign: <span id="fd-callsign">N/A</span></p>
+        <p>Aircraft: <span id="fd-aircraft">N/A</span></p>
+        <p>Altitude: <span id="fd-altitude">0 ft</span></p>
+        <p>Speed: <span id="fd-speed">0 kts</span></p>
+        <p>Heading: <span id="fd-heading">0°</span></p>
+        <p>V.Speed: <span id="fd-vspeed">0 fpm</span></p>
+        <p>Phase: <span id="fd-phase">Grounded</span></p>
+        <p>Next WP: <span id="fd-next-wp">---</span></p>
+        <p>ETA Next: <span id="fd-eta-next">--:--</span></p>
+        <p>Fuel: <span id="fd-fuel">100%</span></p>
+      </div>
+      <div class="module-controls" style="margin-top: 10px;">
+        <button id="analyze-fuel-button" class="control-button" title="Analyze Fuel Status" disabled="">Analyze Fuel</button>
+      </div>
+    </section>
+
+    <section id="flight-automation-module" class="dashboard-module" aria-labelledby="flight-automation-heading">
+        <h2 id="flight-automation-heading">Flight &amp; Automation Insights</h2>
+        <div class="module-info">
+            <p>Milestone Altitudes: <code id="fa-milestone-altitudes">---</code> <span class="tooltip-trigger" data-tooltip="Specific altitudes (e.g., 1000, 5000, 10000 ft) that can trigger automated events or announcements when crossed.">ⓘ</span></p>
+            <p>Auto Scene Rules: <span id="fa-auto-scene-status">Disabled</span></p>
+            <p>Weather Update Interval: <code id="fa-weather-interval">---</code></p>
+        </div>
+        <h3>Flight Milestones Log:</h3>
+        <div id="flight-milestones-log" class="log-output" style="height: 100px;" aria-live="polite"><p class="log-placeholder">Flight milestones will appear here...</p></div>
+    </section>
+
+    <section id="system-health-module" class="dashboard-module" aria-labelledby="system-health-heading">
+      <h2 id="system-health-heading">System Health &amp; Metrics</h2>
+      <div class="module-info">
+        <p>Overall System Status: <span id="metrics-system-status">---</span></p>
+        <p>Voice Queue Size: <span id="metrics-voice-queue">---</span></p>
+        <p>Last Voice Command: <span id="metrics-last-voice-cmd">---</span></p>
+        <p>Database Connection: <span id="metrics-db-connection">---</span></p>
+        <p>Sentry Reporting: <span id="metrics-sentry-reporting">---</span></p>
+      </div>
+    </section>
+
+    <section id="config-editor-module" class="dashboard-module" aria-labelledby="config-editor-heading">
+        <h2 id="config-editor-heading">Configuration Editor (`config.yaml`)</h2>
+        <textarea id="config-editor-textarea" class="config-editor-textarea" spellcheck="false" rows="15" aria-label="Configuration YAML content"></textarea>
+        <div id="config-editor-status" class="config-editor-status" aria-live="polite"></div>
+        <div class="module-controls button-grid" style="margin-top: 10px;">
+            <button id="load-default-config-button" class="control-button">Load Default</button>
+            <button id="save-config-button" class="control-button">Save Config</button>
+        </div>
+    </section>
+
+    <section id="diagnostics-module" class="dashboard-module" aria-labelledby="diagnostics-heading">
+        <h2 id="diagnostics-heading">Diagnostics &amp; Testing</h2>
+        <div class="module-controls button-grid">
+            <button id="diag-test-twitch-button" class="control-button">Test Twitch</button>
+            <button id="diag-test-streamerbot-button" class="control-button">Test Streamer.bot</button>
+            <button id="diag-test-lnm-button" class="control-button">Test LittleNavmap</button>
+            <button id="diag-test-openai-button" class="control-button">Test OpenAI/Gemini</button>
+            <button id="diag-test-tts-button" class="control-button">Test TTS</button>
+        </div>
+        <div class="form-group" style="margin-top: 10px;">
+            <label for="diag-voice-intent-input">Test Voice Intent Phrase:</label>
+            <input type="text" id="diag-voice-intent-input" class="control-input" placeholder="e.g., overlord set altitude 5000">
+            <div data-lastpass-icon-root="" style="position: relative !important; height: 0px !important; width: 0px !important; float: left !important;"></div><button id="diag-classify-intent-button" class="control-button">Classify Intent</button>
+        </div>
+        <div class="module-controls button-grid" style="margin-top: 10px;">
+            <button id="diag-trigger-decree-button" class="control-button">Trigger Test Decree</button>
+            <button id="diag-trigger-milestone-button" class="control-button">Trigger Test Milestone</button>
+        </div>
+        <h3>Diagnostics Log:</h3>
+        <div id="diagnostics-log-output" class="log-output" style="height: 120px;" aria-live="polite"><p class="log-placeholder">Diagnostic test results will appear here...</p></div>
+    </section>
+
+    <section id="weather-module" class="dashboard-module" aria-labelledby="weather-heading">
+      <h2 id="weather-heading">Weather</h2>
+      <div class="module-controls">
+        <button id="fetch-weather-button" class="control-button">Fetch Current Weather</button>
+      </div>
+      <pre id="weather-display" class="code-display" aria-live="polite">METAR data will appear here...</pre>
+    </section>
+
+    <section id="decrees-loyalty-module" class="dashboard-module" aria-labelledby="decrees-loyalty-heading">
+      <h2 id="decrees-loyalty-heading">Decrees &amp; Loyalty</h2>
+      <div class="module-controls">
+        <button id="issue-decree-button" class="control-button">Issue Manual Decree</button>
+        <button id="suggest-decree-button" class="control-button" title="Bot must be running to suggest decrees." disabled="">🔮 Suggest Decree Ideas</button>
+        <button id="toggle-seasonal-button" class="control-button" disabled="">Enable Seasonal</button>
+      </div>
+      <div id="decree-suggestions-area" class="list-output" style="display: none; margin-top: 10px; height: auto; min-height: 50px;"><p class="log-placeholder">Decree ideas will appear here...</p></div>
+       <div class="form-group">
+          <label for="dl-loyalty-multiplier-input">Loyalty Multiplier:</label>
+          <input type="text" id="dl-loyalty-multiplier-input" class="control-input" value="---">
+        </div>
+        <div class="form-group">
+          <label for="dl-decree-cooldown-input">Decree Cooldown (s):</label>
+          <input type="text" id="dl-decree-cooldown-input" class="control-input" value="---">
+       </div>
+       <button id="save-ai-settings-button" class="control-button" disabled="">Save AI Settings</button>
+       <div class="module-info" style="margin-top: 10px;">
+        <p>Seasonal Content: <span id="dl-seasonal-status">Inactive</span></p>
+      </div>
+      <h3>Recent Decrees:</h3>
+      <div id="decrees-list" class="list-output" aria-live="polite"><p class="log-placeholder">No decrees issued.</p></div>
+      <h3>Top Viewers (Loyalty):</h3>
+      <ul id="loyalty-list" class="list-output">
+        <li>Viewer1 (Digital Disciple): 1000pts</li>
+        <li>Viewer2 (Acolyte): 750pts</li>
+        <li>Viewer3 (Initiate): 500pts</li>
+        <li>Viewer4 (Drone): 250pts</li>
+      </ul>
+    </section>
+    
+    <section id="loyalty-explorer-module" class="dashboard-module" aria-labelledby="loyalty-explorer-heading">
+        <h2 id="loyalty-explorer-heading">User Loyalty Explorer (Simulated)</h2>
+        <div class="form-group">
+            <label for="loyalty-search-input">Search User by Name:</label>
+            <input type="text" id="loyalty-search-input" class="control-input" placeholder="Enter username">
+            <div data-lastpass-icon-root="" style="position: relative !important; height: 0px !important; width: 0px !important; float: left !important;"></div><button id="loyalty-find-user-button" class="control-button" disabled="">Find User</button>
+        </div>
+        <div class="module-info" id="loyalty-user-details-display" style="margin-top: 10px;">
+            <p>User Name: <strong id="loyalty-user-name">---</strong></p>
+            <p>Loyalty Score: <span id="loyalty-user-score">---</span></p>
+            <p>Loyalty Rank: <span id="loyalty-user-rank">---</span></p>
+            <p>Last Interaction: <span id="loyalty-user-last-interaction">---</span></p>
+        </div>
+        <div class="form-group" style="margin-top: 10px;">
+            <label for="loyalty-adjust-score-input">Adjust Score (e.g., +10 or -5):</label>
+            <input type="text" id="loyalty-adjust-score-input" class="control-input" placeholder="e.g. +50">
+            <button id="loyalty-update-score-button" class="control-button" disabled="">Update Score</button>
+        </div>
+        <p id="loyalty-explorer-status" class="module-status-message" aria-live="polite"></p>
+    </section>
+
+    <section id="stream-automation-module" class="dashboard-module" aria-labelledby="stream-automation-heading">
+      <h2 id="stream-automation-heading">Stream Automation</h2>
+      <div class="form-group">
+        <label for="stream-title-input">Stream Title:</label>
+        <input type="text" id="stream-title-input" class="control-input" placeholder="Enter new stream title">
+        <button id="update-title-button" class="control-button">Update Title</button>
+      </div>
+      <div class="form-group">
+        <label for="chat-announcement-input">Chat Announcement:</label>
+        <input type="text" id="chat-announcement-input" class="control-input" placeholder="Enter announcement text">
+        <button id="send-announcement-button" class="control-button">Send Announcement</button>
+      </div>
+      <div class="module-controls button-grid">
+        <button id="take-screenshot-button" class="control-button">Take Screenshot</button>
+        <button class="control-button scene-button" data-scene-name="Cockpit">Scene: Cockpit</button>
+        <button class="control-button scene-button" data-scene-name="External">Scene: External</button>
+        <button class="control-button scene-button" data-scene-name="Map">Scene: Map</button>
+      </div>
+    </section>
+    
+    <section id="airport-lookup-module" class="dashboard-module" aria-labelledby="airport-lookup-heading">
+      <h2 id="airport-lookup-heading">Airport Info Lookup</h2>
+      <div class="form-group">
+        <label for="icao-input">ICAO Code:</label>
+        <input type="text" id="icao-input" class="control-input" placeholder="e.g., KLAX" maxlength="4">
+        <button id="lookup-airport-button" class="control-button">Lookup Airport</button>
+      </div>
+      <div id="airport-info-display" class="code-display" style="min-height: 80px;" aria-live="polite">Airport data will appear here...</div>
+    </section>
+
+    <section id="chat-module" class="dashboard-module" aria-labelledby="chat-heading">
+      <h2 id="chat-heading">Twitch Chat Monitor</h2>
+      <div id="chat-output" class="log-output" aria-live="polite"><div class="log-entry log-entry-chat"><span class="timestamp">[09:49:49]</span> <span class="log-message"><strong>StreamViewer123:</strong> Hello Overlord! Great stream!</span></div><div class="log-entry log-entry-chat"><span class="timestamp">[09:49:49]</span> <span class="log-message"><strong>AnotherFan:</strong> !status</span></div></div>
+       <div class="form-group">
+        <label for="bot-chat-input" class="sr-only">Send message as bot:</label>
+        <input type="text" id="bot-chat-input" class="control-input" placeholder="Send message as bot...">
+        <button id="send-bot-message-button" class="control-button">Send</button>
+      </div>
+    </section>
+
+    <section id="quick-settings-module" class="dashboard-module" aria-labelledby="quick-settings-heading">
+      <h2 id="quick-settings-heading">Quick Settings Overview</h2>
+      <div class="module-info">
+        <p>Cmd Prefix: <code id="qs-voice-prefix">Hey Overlord</code></p>
+        <p>Activation Phrases: <code id="qs-voice-activation">hey Overlord, assistant, overlord</code></p>
+        <p>Core AI Personality Prompt: <code id="qs-ai-personality-prompt" style="white-space: pre-wrap; max-height: 60px; overflow-y: auto; display: block;">You are an AI Overlord managing a flight simulation Twitch channel. You are sometimes dramatic, sometimes analytical, but always in command.</code></p>
+        <p>Active AI Model: <code id="qs-ai-model">Gemini (Active)</code></p>
+        <p>Bot Language: <code id="qs-language">en-US</code></p>
+        <p>Config File: <code id="qs-config-file">config.yaml</code></p>
+        <hr class="separator">
+        <p>OpenAI/Gemini API Key: <code id="qs-openai-api-key-status" class="key-status-set">✓ Set</code></p>
+        <p>Airport API Key: <code id="qs-airport-api-key-status" class="key-status-not-set">⚠️ Not Set</code></p>
+        <p>Azure Speech Key: <code id="qs-azure-speech-key-status" class="key-status-set">✓ Set</code></p>
+        <p>Sentry DSN: <code id="qs-sentry-status" class="key-status-optional-not-set">Not Set</code> <span class="tooltip-trigger" data-tooltip="Data Source Name for Sentry.io error tracking service. If set, bot errors will be reported there.">ⓘ</span></p>
+        <hr class="separator">
+        <p>Verbose Logging: <code id="qs-verbose-logging">False</code> <span class="tooltip-trigger" data-tooltip="Enables more detailed log output from the bot, useful for debugging.">ⓘ</span></p>
+        <p>Log Level: <code id="qs-log-level">INFO</code></p>
+      </div>
+      <div class="form-group" style="margin-top: 15px;">
+        <label for="set-log-level">Set Bot Log Level (Simulated):</label>
+        <div class="module-controls" style="gap: 5px;">
+            <select id="set-log-level" class="control-input">
+                <option value="DEBUG">DEBUG</option>
+                <option value="INFO" selected>INFO</option>
+                <option value="WARNING">WARNING</option>
+                <option value="ERROR">ERROR</option>
+            </select>
+            <button id="apply-log-level-button" class="control-button" disabled="">Apply</button>
+        </div>
+         <p id="log-level-status" class="module-status-message" aria-live="polite" style="margin-top:5px;"></p>
+      </div>
+    </section>
+  </main>
+  
+  <footer>
+      <p>© 2024 AI Overlord Bot. All systems nominal (hopefully).</p>
+  </footer>
+
+  <script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://esm.sh/@google/genai@^1.4.0",
+    "react": "https://esm.sh/react@^19.1.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
+    "react/": "https://esm.sh/react@^19.1.0/"
+  }
+}
+</script>
+  <script>
+    // Mock environment variables for browser execution.
+    // In a real build (e.g., with Vite), these would be replaced.
+    window.process = window.process || {};
+    window.process.env = window.process.env || {};
+    // API_KEY is expected to be injected by a build tool like Vite.
+    // If not, the Gemini client will be initialized without a key and features will be disabled.
+  </script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js').then(registration => {
+          console.log('ServiceWorker registration successful with scope: ', registration.scope);
+        }, err => {
+          console.log('ServiceWorker registration failed: ', err);
+        });
+      });
+    }
+  </script>
+  <script type="module" src="index.tsx"></script>
+
+
+<div data-lastpass-root="" style="position: absolute !important; top: 0px !important; left: 0px !important; height: 0px !important; width: 0px !important;"></div><script type="module" src="/index.tsx"></script>
+</body></html>
