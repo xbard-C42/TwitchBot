@@ -392,7 +392,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **Issues**: [GitHub Issues](https://github.com/yourusername/ai-overlord-bot/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/yourusername/ai-overlord-bot/discussions)
-- **Discord**: [Community Server](https://discord.gg/your-server)
+- **Discord**: [Community Server]([https://discord.gg/your-server](https://discord.gg/g7V4TVBFPm))
 
 ---
 
