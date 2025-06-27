@@ -391,7 +391,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Support
 
 - **Issues**: [GitHub Issues](https://github.com/yourusername/ai-overlord-bot/issues)
-- **Discussions**: [GitHub Discussions]((https://github.com/xbard-C42/TwitchBot/discussions))
+- **Discussions**: [GitHub Discussions](https://github.com/xbard-C42/TwitchBot/discussions)
 - **Discord**: [![Discord](https://img.shields.io/badge/Discord-Join%20Our%20Server-7289DA?logo=discord)](https://discord.gg/g7V4TVBFPm)
 
 
